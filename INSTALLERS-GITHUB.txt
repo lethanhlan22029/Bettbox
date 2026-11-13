@@ -1,0 +1,116 @@
+GitHub Actions 四平台安装包
+更新日期：2026-11-13
+
+一、上传源码
+将 Bettbox-main 目录内的完整源码上传到 GitHub 仓库根目录，使 pubspec.yaml、
+tools、core 和 .github 位于仓库根目录。
+需要包含 core/Clash.Meta 的源码，以及原有 plugins 和平台目录。
+不要上传 Flutter SDK、build、.dart_tool、本机 local.properties 或签名文件。
+
+本次新增文件（必须同时上传）：
+  .github/workflows/client-installers.yml
+  tools/build-installers.ps1
+  INSTALLERS-GITHUB.txt
+脚本继续依赖现有 tools/client.ps1 和 Windows 打包脚本，不能只上传 yml。
+
+二、产品配置
+在 GitHub Actions 的 Run workflow 表单中手动填写，不再使用 config/client.json：
+  METRON_BASE_URL：面板 HTTPS 地址
+  METRON_SUBSCRIPTION_BASE_URL：订阅 HTTPS 域名，不带 /link/ 路径
+  CRISP_WEBSITE_ID：Crisp 网站 ID
+  APP_DISPLAY_NAME：软件显示名称
+  APP_VERSION：版本号，例如 1.19.8
+  APP_BUILD_NUMBER：递增的构建号，使用字符串，最大 2147483647
+这些是普通工作流输入，可在构建记录中查看，不能写入账号密码、签名密码或服务器密钥。
+只在 Runner 的 .dart_tool 临时生成构建配置，不会写回仓库或上传配置文件。
+正式上线前核对面板地址、Crisp 网站 ID 和版本；APP_BUILD_NUMBER 应随新版本递增。
+修改配置后必须重新编译，已安装的软件不会自动读取仓库的新配置。
+
+三、Android 签名（首次构建前配置）
+仓库 Settings → Secrets and variables → Actions → New repository secret，添加：
+  KEYSTORE：JKS 签名文件的 Base64 文本
+  KEY_ALIAS：签名密钥别名
+  STORE_PASSWORD：JKS 密码
+  KEY_PASSWORD：密钥密码
+请沿用已有 Android 应用的签名密钥，才能覆盖安装升级；妥善备份密钥及密码。
+工作流缺少任何一个 Secret 时会明确失败，不会退回调试签名。
+
+若是首次发布且没有密钥，在本机安装 JDK 后用 PowerShell 执行：
+  keytool -genkeypair -v -keystore maomaoyun-release.jks -storetype JKS -alias maomaoyun -keyalg RSA -keysize 3072 -validity 10000
+密码按提示输入，不要把命令生成的密钥提交到仓库。
+将 Base64 放入剪贴板，再粘贴到 GitHub 的 KEYSTORE Secret：
+  [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path -LiteralPath '.\maomaoyun-release.jks').Path)) | Set-Clipboard
+其余三个 Secret 填写生成密钥时使用的别名和密码。
+
+四、开始构建
+将工作流提交到仓库默认分支。
+打开 GitHub 仓库 → Actions → Installers - Android Windows macOS → Run workflow。
+Flutter SDK 默认 3.47.9；六个产品参数均需手动填写，没有正式配置默认值。
+Build target 默认 all，可选择：
+  all：一次构建全部四个平台
+  android-arm64-v8a：只构建 Android ARM64 APK
+  windows-amd64：只构建 Windows AMD64 安装 EXE
+  macos-amd64：只构建 macOS Intel DMG
+  macos-arm64：只构建 macOS Apple Silicon DMG
+只为选中的目标创建编译作业；另有一个用于选择目标的轻量 Ubuntu 作业。
+单独构建 Windows/macOS 时不会执行 Android 签名或要求 Android Secrets。
+本地构建可在 PowerShell 中设置同名的六个环境变量，再执行 tools/client.ps1 或 tools/build-installers.ps1。
+如显式传入 -ConfigPath，必须提供完整配置，不再合并仓库默认配置。
+GitHub 精简源码覆盖包不包含本地测试配置、测试用例或测试工具。
+选择 all 时四个平台并行构建；某个平台失败不会取消其他平台。
+不同目标的工作流可以同时运行；相同分支、相同目标的新运行会取消尚未完成的旧运行。
+
+完成后在该次运行底部 Artifacts 直接下载安装包文件：
+  Bettbox-版本-android-arm64-v8a.apk
+  Bettbox-版本-windows-amd64-compatible-setup.exe
+  Bettbox-版本-macos-amd64.dmg
+  Bettbox-版本-macos-arm64.dmg
+各安装包对应的 .sha256 校验文件分别作为另一个文件提供下载，保留 14 天，请及时下载。
+使用 upload-artifact@v7 的 archive: false，每次只上传一个文件，下载时不再套 ZIP。
+Windows 保留兼容 CPU 基线，产物是 Inno Setup 安装器。
+DMG 打开后将“猫猫云.app”（或配置名称）拖到 Applications 安装。
+本工作流只上传 Artifact，不自动创建或发布 GitHub Release。
+仅保留 Installers - Android Windows macOS，手动选择单个平台或全部四个平台。
+便携版和原版全平台构建工作流及其专用发布辅助文件已移除，打标签不会自动构建。
+注意：项目根目录 build.yaml 是 Dart 代码生成配置，必须保留。
+
+五、账号、订阅刷新与客服
+进入账号页和返回前台时会尝试刷新账号资料；自动请求至少间隔 1 分钟。
+账号页保持在前台时也会定期刷新。手动刷新不受时间间隔限制，同一会话的并发请求会合并。
+订阅每分钟检查是否已到自身更新周期，不会每分钟下载；失败后至少间隔 5 分钟重试。
+网络暂时不可用时保留已有账号资料和订阅配置；服务器明确撤销当前登录时仍会退出。
+Android 和 macOS 使用内嵌 Crisp 聊天，Windows 保留独立客服窗口。
+客服组件为 lib/widgets/crisp_embedded_chat.dart，替代原 crisp_android_chat.dart；更新源码时需一并上传新文件。
+macOS 已完成代码适配和离线身份检查，仍需在实际 Mac 上验收聊天、切换账号和关闭页面。
+精简覆盖包只增加四平台安装包工作流，不包含本地使用的便携版工作流。
+
+五、签名状态
+Android 使用上述固定发布密钥签名，并用 apksigner 验证。
+Windows EXE 暂未配置商业代码签名证书，系统可能显示未知发布者。
+macOS 使用临时签名（ad-hoc），未配置 Apple Developer ID 和公证，
+安装时可能被 Gatekeeper 拦截；面向普通用户正式分发时应补充 Developer ID 签名与公证。
+现有 SignPath 配置不参与新工作流，也不需要填写 SignPath Secret。
+
+六、验证范围
+脚本检查 APK 的 ARM64 核心、macOS 两份产物的目标架构及签名、核心哈希、
+DMG 完整性和安装包 SHA256。工作流不执行测试用例，不依赖测试文件。
+工作流已通过 actionlint 1.7.12、YAML/PowerShell 校验和四种打包计划检查。
+完整四平台编译需要在 GitHub Actions 实际运行，不能用本机 Windows 验证代替。
+
+本机仅查看打包计划（不编译）：
+  ./tools/build-installers.ps1 -Platform android -Architecture arm64 -Plan
+  ./tools/build-installers.ps1 -Platform windows -Architecture amd64 -Plan
+  ./tools/build-installers.ps1 -Platform macos -Architecture amd64 -Plan
+  ./tools/build-installers.ps1 -Platform macos -Architecture arm64 -Plan
+
+SHA256 本机核对示例：
+  Get-FileHash -LiteralPath '.\Bettbox-1.19.8-windows-amd64-compatible-setup.exe' -Algorithm SHA256
+
+七、Android 编译机磁盘空间
+Android 作业开始时，在 GitHub 官方托管机上清理不用的预装工具、模拟器与旧 NDK，保留指定 NDK。
+清理后打印磁盘剩余空间，低于 20 GiB 时提前失败；自托管机器跳过此清理。
+Go 核心编译完成后释放 Go 编译与模块缓存，再开始 APK 构建；Android 作业关闭 Go 缓存恢复。
+Gradle 最多使用两个 worker，并关闭额外的本地构建缓存，减少临时占用。
+android/core 根据 Flutter 的 target-platform 选择 NDK ABI，ARM64 构建只编译 arm64-v8a。
+未指定 target-platform 时保持原有默认行为，不固定限制其他 Android 架构。
+日志中的磁盘空间不足修复需要同步更新工作流、tools/build-installers.ps1、android/core/build.gradle.kts。
