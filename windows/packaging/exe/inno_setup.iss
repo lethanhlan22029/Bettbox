@@ -26,6 +26,9 @@ SetupLogging=yes
 var
   ShouldCleanUserData: Boolean;
 
+function GetFileAttributesW(FileName: String): LongWord;
+  external 'GetFileAttributesW@kernel32.dll stdcall';
+
 function IsProcessRunning(ProcessName: String): Boolean;
 var
   ResultCode: Integer;
@@ -224,8 +227,8 @@ var
   i: Integer;
 begin
   SetArrayLength(RegistryKeys, 2);
-  RegistryKeys[0] := 'Software\com.appshub.bettbox';
-  RegistryKeys[1] := 'Software\com.appshub\Bettbox';
+  RegistryKeys[0] := 'Software\{{REGISTRY_IDENTITY}}';
+  RegistryKeys[1] := 'Software\com.appshub\{{SECURE_DATA_DIR_PASCAL}}';
   
   for i := 0 to GetArrayLength(RegistryKeys)-1 do
   begin
@@ -238,25 +241,43 @@ var
   UserDataPaths: TArrayOfString;
   i: Integer;
   AppDataPath: String;
+  CompanyPath: String;
+  TargetPath: String;
+  FailedPaths: String;
 begin
   AppDataPath := ExpandConstant('{userappdata}');
-  
+  CompanyPath := ExpandFileName(AppDataPath + '\com.appshub');
+  FailedPaths := '';
+
   SetArrayLength(UserDataPaths, 2);
-  UserDataPaths[0] := AppDataPath + '\com.appshub.bettbox';
-  UserDataPaths[1] := AppDataPath + '\com.appshub\Bettbox';
+  UserDataPaths[0] := CompanyPath + '\{{USER_DATA_DIR_PASCAL}}';
+  UserDataPaths[1] := CompanyPath + '\{{SECURE_DATA_DIR_PASCAL}}';
   
   for i := 0 to GetArrayLength(UserDataPaths)-1 do
   begin
-    if DirExists(UserDataPaths[i]) then
+    TargetPath := ExpandFileName(UserDataPaths[i]);
+    if DirExists(TargetPath) then
     begin
-      DelTree(UserDataPaths[i], True, True, True);
+      { Only remove a direct child of this user's application-data company folder.
+        DelTree does not traverse reparse points inside the selected directory. }
+      if (CompareText(ExtractFileDir(TargetPath), CompanyPath) <> 0) or
+         ((GetFileAttributesW(CompanyPath) and $400) <> 0) or
+         ((GetFileAttributesW(TargetPath) and $400) <> 0) then
+      begin
+        Log('Skipped redirected or unexpected user data path: ' + TargetPath);
+        FailedPaths := FailedPaths + TargetPath + #13#10;
+      end
+      else if not DelTree(TargetPath, True, True, True) then
+        FailedPaths := FailedPaths + TargetPath + #13#10;
     end;
   end;
   
-  if DirExists(AppDataPath + '\com.appshub') then
+  if DirExists(CompanyPath) and ((GetFileAttributesW(CompanyPath) and $400) = 0) then
   begin
-    RemoveDir(AppDataPath + '\com.appshub');
+    RemoveDir(CompanyPath);
   end;
+  if FailedPaths <> '' then
+    MsgBox(CustomMessage('RemoveUserDataFailed') + #13#10 + FailedPaths, mbError, MB_OK);
 end;
 
 function InitializeSetup(): Boolean;
@@ -329,12 +350,14 @@ Name: "chineseSimplified"; MessagesFile: {% if locale.file %}{{ locale.file }}{%
 
 [CustomMessages]
 english.ShuttingDownRunningApp=Shutting down running {{DISPLAY_NAME}}...
-english.RemoveUserDataPrompt=Do you want to remove all user data?%n%nThis will remove:%n• Configuration files%n• Profiles and subscriptions%n• Settings and preferences%n• Registry entries%n%nThis action cannot be undone.
+english.RemoveUserDataPrompt=Do you want to remove all user data?%n%nThis will remove:%n• Saved login information%n• Configuration files%n• Profiles and subscriptions%n• Settings and preferences%n• Registry entries%n%nThis action cannot be undone.
+english.RemoveUserDataFailed=Some user data could not be removed. Close applications using it and check these folders:
 {% if LOCALES %}
 {% for locale in LOCALES %}
 {% if locale.lang == 'zh' %}
 chineseSimplified.ShuttingDownRunningApp=正在关闭运行中的 {{DISPLAY_NAME}}...
-chineseSimplified.RemoveUserDataPrompt=是否要删除所有用户数据？%n%n这将删除：%n• 配置文件%n• 代理配置与订阅%n• 设置和偏好%n• 注册表记录%n%n此操作无法撤销。
+chineseSimplified.RemoveUserDataPrompt=是否要删除所有用户数据？%n%n这将删除：%n• 保存的登录信息%n• 配置文件%n• 代理配置与订阅%n• 设置和偏好%n• 注册表记录%n%n此操作无法撤销。
+chineseSimplified.RemoveUserDataFailed=部分用户数据未能删除，请关闭占用程序后检查以下目录：
 {% endif %}
 {% endfor %}
 {% endif %}

@@ -9,7 +9,10 @@ abstract interface class MetronSessionStore {
 class SecureMetronSessionStore implements MetronSessionStore {
   const SecureMetronSessionStore();
 
-  static const _storage = FlutterSecureStorage();
+  // Ad-hoc macOS builds have no provisioning profile for Keychain Sharing.
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);

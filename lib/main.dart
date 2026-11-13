@@ -21,6 +21,7 @@ import 'clash/lib.dart';
 import 'common/common.dart';
 import 'common/external_control.dart';
 import 'common/network_matcher.dart';
+import 'common/metron_session.dart';
 import 'models/models.dart';
 
 ReceivePort? _serviceReceiverPort;
@@ -40,6 +41,10 @@ Future<void> main(List<String> args) async {
   if (system.isMacOS || appPath.isPortable) {
     final acquire = await singleInstanceLock.acquire();
     if (!acquire) {
+      if (system.isMacOS && args.contains('--prepare-uninstall')) {
+        stderr.writeln('Close the running client before uninstalling.');
+        exit(1);
+      }
       commonPrint.warn(
         'SingleInstanceLock: another instance detected or lock failed, exiting',
       );
@@ -48,6 +53,21 @@ Future<void> main(List<String> args) async {
         await Future.delayed(const Duration(milliseconds: 100));
       }
       exit(0);
+    }
+  }
+
+  if (system.isMacOS && args.contains('--prepare-uninstall')) {
+    try {
+      final startup = autoLaunch!;
+      if (await startup.isEnable && !await startup.disable()) {
+        throw StateError('Could not disable login startup');
+      }
+      if (args.contains('--clear-user-data')) await metronSession.clear();
+      exit(0);
+    } on Object {
+      // Never print stored credentials or keychain contents from a CLI helper.
+      stderr.writeln('Uninstall preparation failed. The application was kept.');
+      exit(1);
     }
   }
 

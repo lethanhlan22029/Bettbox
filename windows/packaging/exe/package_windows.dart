@@ -51,7 +51,7 @@ void main(List<String> arguments) async {
   final appVersion = versionMatch.group(1)!;
   print('App Version: $appVersion');
 
-  final outputBaseName = 'Bettbox-$appVersion-windows-$desc-setup';
+  final outputBaseName = 'maomaoyun-$appVersion-windows-$desc-setup';
 
   // 2. Parse make_config.yaml
   final configFile = File('windows/packaging/exe/make_config.yaml');
@@ -94,6 +94,8 @@ void main(List<String> arguments) async {
       ? r'\\.\pipe\BettboxDev.Helper'
       : r'\\.\pipe\Bettbox.Helper';
   final taskName = isDev ? 'Bettbox Dev' : 'Bettbox';
+  final userDataDirName = isDev ? 'BettboxDev' : displayName;
+  final secureDataDirName = isDev ? '$displayName 测试版' : displayName;
 
   // Format locales - resolve file paths to absolute to avoid Inno Setup relative path issues
   final packagingDir = path.absolute('windows/packaging/exe');
@@ -123,7 +125,11 @@ void main(List<String> arguments) async {
         makeConfig['publisher_url'] ?? 'https://github.com/appshubcc/Bettbox',
     'CREATE_DESKTOP_ICON': true,
     'LAUNCH_AT_STARTUP': true,
-    'INSTALL_DIR_NAME': '{autopf64}\\$displayName',
+    'INSTALL_DIR_NAME': r'{autopf64}\maomaoyun',
+    // These values are Pascal string literals, rather than Inno constants.
+    'USER_DATA_DIR_PASCAL': userDataDirName.replaceAll("'", "''"),
+    'SECURE_DATA_DIR_PASCAL': secureDataDirName.replaceAll("'", "''"),
+    'REGISTRY_IDENTITY': isDev ? 'BettboxDev' : 'Bettbox',
     'SOURCE_DIR': sourceDir,
     'OUTPUT_BASE_FILENAME': outputBaseName,
     'LOCALES': locales,
@@ -227,7 +233,7 @@ void main(List<String> arguments) async {
     }
 
     final portableOutputBaseName =
-        'Bettbox-$appVersion-windows-$desc-portable.zip';
+        'maomaoyun-$appVersion-windows-$desc-portable.zip';
     final targetPortableZipPath = path.join('dist', portableOutputBaseName);
     final targetPortableFile = File(targetPortableZipPath);
     if (targetPortableFile.existsSync()) {

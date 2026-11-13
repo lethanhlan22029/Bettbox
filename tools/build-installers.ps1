@@ -21,7 +21,7 @@ try {
         windows { 'windows-amd64-compatible-setup.exe' }
         macos { "macos-$Architecture.dmg" }
     }
-    $output = "dist/Bettbox-$version-$suffix"
+    $output = "dist/maomaoyun-$version-$suffix"
     if ($Plan) {
         [PSCustomObject]@{Platform=$Platform; Architecture=$Architecture; Installer=$output; Panel=$values.METRON_BASE_URL; Portable=$false} | ConvertTo-Json -Compress
         return
@@ -101,7 +101,7 @@ try {
                 $actualArch = (& /usr/bin/lipo -archs $binary).Trim()
                 if ($LASTEXITCODE -ne 0 -or $actualArch -ne $expectedArch) { throw "Wrong architecture for $binary : $actualArch" }
             }
-            Native 'python3' @('-c', 'import plistlib,sys; p=sys.argv[1]; d=plistlib.load(open(p,"rb")); d["CFBundleDisplayName"]=sys.argv[2]; plistlib.dump(d,open(p,"wb"),sort_keys=False)', "$app/Contents/Info.plist", $displayName)
+            Native 'python3' @('-c', 'import plistlib,sys; p=sys.argv[1]; d=plistlib.load(open(p,"rb")); assert d.get("CFBundleIdentifier")=="com.appshub.bettbox", "Unexpected bundle identifier"; d["CFBundleDisplayName"]=sys.argv[2]; d["CFBundleName"]=sys.argv[2]; plistlib.dump(d,open(p,"wb"),sort_keys=False)', "$app/Contents/Info.plist", $displayName)
             $frameworkRoot = "$app/Contents/Frameworks"
             if (Test-Path -LiteralPath $frameworkRoot) {
                 foreach ($dylib in Get-ChildItem -LiteralPath $frameworkRoot -Filter '*.dylib' -File -Recurse) {
@@ -116,10 +116,16 @@ try {
             if ((Get-FileHash -LiteralPath "$app/Contents/MacOS/BettboxCore" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) {
                 throw 'macOS core changed after its authentication hash was embedded.'
             }
-            $stage = Join-Path $env:RUNNER_TEMP ('bettbox-dmg-' + [Guid]::NewGuid().ToString('N'))
+            $dmgTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+            $stage = Join-Path $dmgTemp ('maomaoyun-dmg-' + [Guid]::NewGuid().ToString('N'))
             New-Item -ItemType Directory -Path $stage | Out-Null
-            Native '/usr/bin/ditto' @($app, (Join-Path $stage "$displayName.app"))
+            Native '/usr/bin/ditto' @($app, (Join-Path $stage 'maomaoyun.app'))
             Native '/bin/ln' @('-s', '/Applications', (Join-Path $stage 'Applications'))
+            $uninstaller = Join-Path $stage '卸载maomaoyun.command'
+            $uninstallScript = [IO.File]::ReadAllText((Join-Path $projectRoot 'macos/packaging/dmg/uninstall.command')).Replace("`r`n", "`n")
+            [IO.File]::WriteAllText($uninstaller, $uninstallScript, [Text.UTF8Encoding]::new($false))
+            Native '/bin/chmod' @('755', $uninstaller)
+            Copy-Item -LiteralPath 'macos/packaging/dmg/UNINSTALL.txt' -Destination (Join-Path $stage '安装与卸载说明.txt')
             Native '/usr/bin/hdiutil' @('create', '-volname', $displayName, '-srcfolder', $stage, '-format', 'UDZO', '-ov', $output)
             Native '/usr/bin/hdiutil' @('verify', $output)
         }
