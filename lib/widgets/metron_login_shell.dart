@@ -138,7 +138,13 @@ class _BrandMark extends StatelessWidget {
       color: const Color(0xFF087F73),
       borderRadius: BorderRadius.circular(16),
     ),
-    child: const Icon(Icons.pets_rounded, size: 28, color: Colors.white),
+    child: Image.asset(
+      'assets/images/app_icon.png',
+      width: 40,
+      height: 40,
+      fit: BoxFit.contain,
+      semanticLabel: '应用图标',
+    ),
   );
 }
 
