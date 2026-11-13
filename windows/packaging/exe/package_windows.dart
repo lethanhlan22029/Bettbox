@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:args/args.dart';
 import 'package:liquid_engine/liquid_engine.dart';
 import 'package:path/path.dart' as path;
@@ -82,6 +83,14 @@ void main(List<String> arguments) async {
     exit(1);
   }
 
+  // Give Explorer a new icon path when the artwork changes, even if the EXE
+  // path and release version stay the same.
+  final shortcutIcon = File('windows/runner/resources/app_icon.ico');
+  final iconHash = crypto.sha256.convert(shortcutIcon.readAsBytesSync());
+  final shortcutIconName =
+      'maomaoyun-app-${iconHash.toString().substring(0, 12)}.ico';
+  shortcutIcon.copySync(path.join(sourceDir, shortcutIconName));
+
   // 4. Map variables for Inno Setup template
   final coreExecutableName = isDev ? 'BettboxDevCore.exe' : 'BettboxCore.exe';
   final helperExecutableName = isDev
@@ -134,6 +143,7 @@ void main(List<String> arguments) async {
     'OUTPUT_BASE_FILENAME': outputBaseName,
     'LOCALES': locales,
     'SETUP_ICON_FILE': path.absolute('windows/runner/resources/app_icon.ico'),
+    'SHORTCUT_ICON_FILENAME': shortcutIconName,
     'PRIVILEGES_REQUIRED': makeConfig['privileges_required'] ?? 'admin',
     'CORE_EXECUTABLE_NAME': coreExecutableName,
     'HELPER_EXECUTABLE_NAME': helperExecutableName,

@@ -150,7 +150,7 @@ jobs:
       - name: Validate source and resolve client configuration
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($file in @('pubspec.yaml', 'core/Clash.Meta/go.mod', 'tools/client.ps1', 'tools/build-installers.ps1')) {
+          foreach ($file in @('pubspec.yaml', 'core/Clash.Meta/go.mod', 'tools/client.ps1', 'tools/build-installers.ps1', 'tools/verify-windows-icon.ps1')) {
             if (!(Test-Path -LiteralPath $file)) { throw "Missing source file: $file. Upload Bettbox-main contents at repository root." }
           }
           ./tools/client.ps1 -Action Prepare

@@ -94,6 +94,7 @@ try {
         $defines += "--dart-define=CORE_SHA256=$hash"
         Native 'flutter' (@('build', $Platform, '--release', '--no-pub') + $defines)
         if ($Platform -eq 'windows') {
+            Native 'pwsh' @('-NoProfile', '-File', 'tools/verify-windows-icon.ps1', '-ExecutablePath', 'build/windows/x64/runner/Release/Bettbox.exe')
             Native 'dart' @('windows/packaging/exe/package_windows.dart', '--arch', 'amd64', '--compatible', '--no-portable', '--installer', '--env', 'stable', '--config', $configFile)
         } else {
             $app = (Resolve-Path -LiteralPath 'build/macos/Build/Products/Release/Bettbox.app').Path

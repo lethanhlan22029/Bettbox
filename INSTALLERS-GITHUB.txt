@@ -69,6 +69,7 @@ GitHub 精简源码覆盖包不包含本地测试配置、测试用例或测试�
 使用 upload-artifact@v7 的 archive: false，每次只上传一个文件，下载时不再套 ZIP。
 Windows 保留兼容 CPU 基线，产物是 Inno Setup 安装器。
 Windows 新安装默认目录为 Program Files\maomaoyun；覆盖升级沿用原安装目录。
+Windows 安装包会验证 EXE 内嵌图标，并为桌面、开始菜单和卸载列表显式指定带图标哈希名称的独立 ICO，避免复用原版图标缓存。
 卸载时可选择是否删除当前 Windows 用户的数据；选择删除会清理实际显示名称对应的配置、订阅和保存的登录信息。
 显示名称只影响界面和用户数据目录，不影响 maomaoyun 安装文件夹名。
 DMG 打开后将 maomaoyun.app 拖到 Applications 安装；界面名称仍使用构建时填写的 APP_DISPLAY_NAME。

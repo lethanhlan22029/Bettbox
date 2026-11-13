@@ -74,6 +74,22 @@ bool ResetShortcutIcon(const std::wstring& lnk_path,
     return false;
   }
 
+  wchar_t icon_path[MAX_PATH] = {0};
+  int icon_index = 0;
+  const auto separator = exe_path.find_last_of(L"\\/");
+  if (separator != std::wstring::npos &&
+      SUCCEEDED(shell_link->GetIconLocation(icon_path, MAX_PATH, &icon_index))) {
+    const std::wstring icon_prefix =
+        exe_path.substr(0, separator + 1) + L"maomaoyun-app-";
+    const std::wstring icon_location(icon_path);
+    if (_wcsnicmp(icon_path, icon_prefix.c_str(), icon_prefix.size()) == 0 &&
+        icon_location.size() > icon_prefix.size() + 4 &&
+        _wcsicmp(icon_path + icon_location.size() - 4, L".ico") == 0 &&
+        GetFileAttributesW(icon_path) != INVALID_FILE_ATTRIBUTES) {
+      return false;
+    }
+  }
+
   if (FAILED(shell_link->SetIconLocation(exe_path.c_str(), 0))) {
     return false;
   }
